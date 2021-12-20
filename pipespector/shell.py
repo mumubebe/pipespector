@@ -34,11 +34,11 @@ class PipeShell(cmd.Cmd):
         return True
 
     def do_break(self, arg):
-        """Set break points (sequence number)"""
+        """Break at any glob pattern"""
         if arg == "clear":
-            self.inspector.breaks = []
+            self.inspector.break_patterns = []
         else:
-            self.inspector.breaks.append(int(arg))
+            self.inspector.break_patterns.append(arg)
 
     def do_seq(self, arg):
         """Print sequence number"""

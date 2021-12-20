@@ -1,5 +1,6 @@
 import sys
 import threading
+import fnmatch
 
 
 class Inspector:
@@ -11,7 +12,7 @@ class Inspector:
         self.seq = 0
         self._state = {"prev": None, "curr": None}
         self.pipe_closed = True
-        self.breaks = []
+        self.break_patterns = []
 
     def step(self):
         """Get next value from stdin"""
@@ -35,24 +36,31 @@ class Inspector:
             self.prev = self._state["curr"]
             self.curr = self.step()
 
-            if self.seq in self.breaks:
+            if self.pattern_match(self.curr, self.break_patterns):
                 self.close()
-                write_shell(f"\nBreak at {self.seq}\n")
+                write_shell(f"\nBreak at ({self.seq})\n")
                 break
 
             if self.pipe_closed:
                 break
 
             if not silence:
-                write_shell(self._state["curr"], bytes=self.bytes)
+                write_shell(self.curr, bytes=self.bytes)
 
-            write_stdout(self._state["curr"], bytes=self.bytes)
+            write_stdout(self.curr, bytes=self.bytes)
 
     def open(self, silence=True):
         """Open pipe"""
         self.pipe_closed = False
         self._thread = threading.Thread(target=self._threaded_open, args=(silence,))
         self._thread.start()
+
+    def pattern_match(self, value, patterns):
+        """Return true if any match"""
+        for p in patterns:
+            if fnmatch.fnmatch(value, p):
+                return True
+        return False
 
     def close(self):
         """Close pipe"""
