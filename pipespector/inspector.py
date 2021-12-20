@@ -32,10 +32,10 @@ class Inspector:
         """Consume stdin threaded"""
         from .shell import write_stdout, write_shell
 
-        while True:
-            self.prev = self._state["curr"]
+        if not self.curr:
             self.curr = self.step()
 
+        while True:
             if self.pattern_match(self.curr, self.break_patterns):
                 self.close()
                 write_shell(f"\nBreak at ({self.seq})\n")
@@ -48,6 +48,9 @@ class Inspector:
                 write_shell(self.curr, bytes=self.bytes)
 
             write_stdout(self.curr, bytes=self.bytes)
+
+            self.prev = self._state["curr"]
+            self.curr = self.step()
 
     def open(self, silence=True):
         """Open pipe"""
