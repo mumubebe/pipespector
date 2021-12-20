@@ -32,7 +32,7 @@ class Inspector:
         """Consume stdin threaded"""
         from .shell import write_stdout, write_shell
 
-        if not self.curr:
+        if self.curr is None:
             self.curr = self.step()
 
         while True:
