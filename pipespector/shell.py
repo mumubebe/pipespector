@@ -96,6 +96,7 @@ def write_stdout(data):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--name")
+    parser.add_argument("-b", "--byte")
     args = parser.parse_args()
 
     PipeShell(args.name).cmdloop()
