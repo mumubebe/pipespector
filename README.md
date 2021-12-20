@@ -1,0 +1,15 @@
+# Pipespector
+
+Pipespector is a pretty shitty tool for debugging and tracing pipes. 
+
+With pipespector it is possible to stepping through each item passing the pipe, and at any time change the values output values.
+By using the 'exec' command to execute any python script to interact and change values before passing it to stdout.
+
+```console
+(pipespector)> help
+
+Documented commands (type help <topic>):
+========================================
+curr  exec  exit  help  info  next  prev
+
+```
