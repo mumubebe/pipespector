@@ -11,6 +11,7 @@ class Inspector:
         self.seq = 0
         self._state = {"prev": None, "curr": None}
         self.pipe_closed = True
+        self.breaks = []
 
     def step(self):
         """Get next value from stdin"""
@@ -21,29 +22,37 @@ class Inspector:
                 value = next(sys.stdin)
             self.seq += 1
         except StopIteration:
-            self._exit_program()
+            self.stdin_exhausted()
+            return
 
         return value
 
-    def _threaded_open(self, silence=False, breaks=None):
+    def _threaded_open(self, silence=True):
         """Consume stdin threaded"""
         from .shell import write_stdout, write_shell
 
         while True:
-            self._state["curr"] = self.step()
-            if self.seq in breaks or self.pipe_closed:
-                # Make sure that pipe is closed
+            self.prev = self._state["curr"]
+            self.curr = self.step()
+
+            if self.seq in self.breaks:
                 self.close()
+                write_shell(f"\nBreak at {self.seq}\n")
                 break
+
+            if self.pipe_closed:
+                break
+
             if not silence:
                 write_shell(self._state["curr"], bytes=self.bytes)
 
             write_stdout(self._state["curr"], bytes=self.bytes)
 
-    def open(self, silence=False, breaks=None):
+    def open(self, silence=True):
         """Open pipe"""
         self.pipe_closed = False
-        threading.Thread(target=self._threaded_open, args=(silence, breaks)).start()
+        self._thread = threading.Thread(target=self._threaded_open, args=(silence,))
+        self._thread.start()
 
     def close(self):
         """Close pipe"""
@@ -77,15 +86,19 @@ class Inspector:
     @property
     def prev(self):
         if self._state["prev"] is None:
-            return b""
+            return b"" if self.bytes else ""
         return self._state["prev"]
+
+    @prev.setter
+    def prev(self, value):
+        self._state["prev"] = value
 
     @property
     def state(self):
         return self._state
 
-    def _exit_program(self):
-        from .shell import write_shell
+    def stdin_exhausted(self):
+        from .shell import stdin_exhausted
 
-        write_shell("No more items left -- exiting program...\n")
-        sys.exit()
+        self.close()
+        stdin_exhausted()

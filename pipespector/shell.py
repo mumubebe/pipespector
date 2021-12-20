@@ -2,6 +2,7 @@ import cmd
 import argparse
 import os
 import sys
+import signal
 from .inspector import Inspector
 
 
@@ -14,17 +15,19 @@ class PipeShell(cmd.Cmd):
     use_rawinput = 0
     name = "pipespector"
 
-    def __init__(self, bytes=False, name=None, *args, **kwargs):
+    def __init__(self, bytes=False, name=None, open=False, *args, **kwargs):
         super().__init__(stdout=outshell, stdin=inshell, *args, **kwargs)
 
         self.inspector = Inspector(bytes=bytes)
-        self.breaks = []
         self.bytes = bytes
 
         if name:
             self.name = name
 
         self.prompt = f"({self.name})> "
+
+        if open:
+            self.inspector.open()
 
     def do_exit(self, arg):
         """Exit program"""
@@ -33,9 +36,9 @@ class PipeShell(cmd.Cmd):
     def do_break(self, arg):
         """Set break points (sequence number)"""
         if arg == "clear":
-            self.breaks = []
+            self.inspector.breaks = []
         else:
-            self.breaks.append(int(arg))
+            self.inspector.breaks.append(int(arg))
 
     def do_seq(self, arg):
         """Print sequence number"""
@@ -50,12 +53,15 @@ class PipeShell(cmd.Cmd):
 
     def do_close(self, arg):
         """Close pipe. This will pause the flow"""
-        self.inspector.close()
+        if self.inspector.is_open():
+            self.inspector.close()
+        else:
+            write_shell("Pipe is not open\n")
 
     def do_open(self, arg):
         """Open up pipe and let it flow freely"""
         if self.inspector.is_closed():
-            self.inspector.open(silence=True, breaks=self.breaks)
+            self.inspector.open(silence=True)
         else:
             write_shell("Pipe is already open\n")
 
@@ -69,8 +75,7 @@ class PipeShell(cmd.Cmd):
     def do_info(self, arg):
         """Print current pipe information"""
         write_shell(
-            f"{os.readlink('/proc/%d/fd/0' % os.getpid())} -> {self.name} -> {os.readlink('/proc/%d/fd/1' % os.getpid())}\n",
-            self.outshell,
+            f"{os.readlink('/proc/%d/fd/0' % os.getpid())} -> {self.name} -> {os.readlink('/proc/%d/fd/1' % os.getpid())}\n"
         )
         write_shell(f"({self.inspector.seq}) values has been passed in pipe \n")
         write_shell("Current value in pipe: ")
@@ -109,6 +114,17 @@ class PipeShell(cmd.Cmd):
             write_shell("Cannot execute script while pipe is open\n")
 
 
+def stdin_exhausted():
+    write_shell("No more items left -- exiting program...\n")
+
+    outshell.flush()
+    sys.stdout.flush()
+
+    # TODO:  this method is called from a thread (not main)
+    # sys.exit() only raises SystemExit inside that thread, ie closing it
+    os._exit(0) #note the underscore
+
+
 def write_shell(data, bytes=False):
     """Print value to current shell"""
     if bytes:
@@ -131,6 +147,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--name")
     parser.add_argument("-b", "--bytes", dest="bytes", action="store_true", help="")
+    parser.add_argument(
+        "-o", "--open", dest="open", action="store_true", help="Start with open pipe"
+    )
     args = parser.parse_args()
 
-    PipeShell(args.bytes, args.name).cmdloop()
+    PipeShell(bytes=args.bytes, name=args.name, open=args.open).cmdloop()
