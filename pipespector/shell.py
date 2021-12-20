@@ -14,10 +14,12 @@ class PipeShell(cmd.Cmd):
     use_rawinput = 0
     name = "pipespector"
 
-    def __init__(self, name=None, *args, **kwargs):
+    def __init__(self, bytes=False, name=None, *args, **kwargs):
         super().__init__(stdout=outshell, stdin=inshell, *args, **kwargs)
 
-        self.inspector = Inspector()
+        self.inspector = Inspector(bytes=bytes)
+        self.breaks = []
+        self.bytes = bytes
 
         if name:
             self.name = name
@@ -28,12 +30,34 @@ class PipeShell(cmd.Cmd):
         """Exit program"""
         return True
 
+    def do_break(self, arg):
+        """Set break points (sequence number)"""
+        if arg == "clear":
+            self.breaks = []
+        else:
+            self.breaks.append(int(arg))
+
+    def do_seq(self, arg):
+        """Print sequence number"""
+        write_shell(str(self.inspector.seq))
+
     def do_curr(self, arg):
         """Print the current value to shell"""
         if self.inspector.curr is None:
             write_shell("No current value in available\n")
         else:
-            write_shell(self.inspector.curr, bytes=True)
+            write_shell(self.inspector.curr, bytes=self.bytes)
+
+    def do_close(self, arg):
+        """Close pipe. This will pause the flow"""
+        self.inspector.close()
+
+    def do_open(self, arg):
+        """Open up pipe and let it flow freely"""
+        if self.inspector.is_closed():
+            self.inspector.open(silence=True, breaks=self.breaks)
+        else:
+            write_shell("Pipe is already open\n")
 
     def do_prev(self, arg):
         """Print the previous value to shell"""
@@ -50,20 +74,23 @@ class PipeShell(cmd.Cmd):
         )
         write_shell(f"({self.inspector.seq}) values has been passed in pipe \n")
         write_shell("Current value in pipe: ")
-        write_shell(self.inspector.curr, bytes=True)
+        write_shell(self.inspector.curr, bytes=self.bytes)
         write_shell("Previous value in pipe: ")
-        write_shell(self.inspector.prev, bytes=True)
+        write_shell(self.inspector.prev, bytes=self.bytes)
 
-    def do_next(self, arg):
-        """Pass the current value to stdout"""
-        curr = self.inspector.curr
-        if curr:
-            write_shell("stdout: \n")
-            write_shell(curr, bytes=True)
-            write_stdout(curr)
-            self.inspector.flush()
+    def do_step(self, arg):
+        """Step one value"""
+        if self.inspector.is_closed():
+            curr = self.inspector.curr
+            if curr:
+                write_shell("stdout: \n")
+                write_shell(curr, bytes=self.bytes)
+                write_stdout(curr)
+                self.inspector.flush()
+            else:
+                write_shell("No current value in pipe\n")
         else:
-            write_shell("No current value in pipe\n")
+            write_shell("Cannot step, pipe is open\n")
 
     def do_exec(self, arg):
         """
@@ -73,10 +100,13 @@ class PipeShell(cmd.Cmd):
         Example 1: curr = b'{"json": "object"}' # Set a string to curr value
         Example 2: curr = prev + b"\n" # Set curr value as previous value with a line break
         """
-        try:
-            exec(arg, globals(), self.inspector.state)
-        except Exception as e:
-            write_shell(str(e))
+        if self.inspector.is_closed():
+            try:
+                exec(arg, globals(), self.inspector.state)
+            except Exception as e:
+                write_shell(str(e))
+        else:
+            write_shell("Cannot execute script while pipe is open\n")
 
 
 def write_shell(data, bytes=False):
@@ -88,15 +118,19 @@ def write_shell(data, bytes=False):
     outshell.flush()
 
 
-def write_stdout(data):
+def write_stdout(data, bytes=False):
     """Pass data to stdout. This will not be printed in shell"""
-    sys.stdout.buffer.write(data)
+    if bytes:
+        sys.stdout.buffer.write(data)
+    else:
+        sys.stdout.write(data)
+    sys.stdout.flush()
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--name")
-    parser.add_argument("-b", "--byte")
+    parser.add_argument("-b", "--bytes", dest="bytes", action="store_true", help="")
     args = parser.parse_args()
 
-    PipeShell(args.name).cmdloop()
+    PipeShell(args.bytes, args.name).cmdloop()
