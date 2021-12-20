@@ -10,6 +10,6 @@ By using the 'exec' command to execute any python script to interact and change 
 
 Documented commands (type help <topic>):
 ========================================
-curr  exec  exit  help  info  next  prev
+break  close  curr  exec  exit  help  info  open  prev  seq  step
 
 ```
