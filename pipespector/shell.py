@@ -33,7 +33,7 @@ class PipeShell(cmd.Cmd):
         """Exit program"""
         return True
 
-    def do_break(self, arg):
+    def do_pattern(self, arg):
         """Break at any glob pattern"""
         if arg == "clear":
             self.inspector.break_patterns = []
