@@ -22,4 +22,9 @@ setuptools.setup(
     ],
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
+    entry_points={
+        "console_scripts": [
+            "pipespector=pipespector.shell:main",
+        ],
+    },
 )

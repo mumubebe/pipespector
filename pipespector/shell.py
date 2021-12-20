@@ -9,6 +9,11 @@ from .inspector import Inspector
 outshell = open("/dev/tty", "w")
 inshell = open("/dev/tty")
 
+if os.isatty(0) or os.isatty(1):
+    raise Exception(
+        "Pipespector cannot be connected to file descriptors that are tty-like devices"
+    )
+
 
 class PipeShell(cmd.Cmd):
     intro = "Type 'help' or '?' to list commands \n"
@@ -122,7 +127,7 @@ def stdin_exhausted():
 
     # TODO:  this method is called from a thread (not main)
     # sys.exit() only raises SystemExit inside that thread, ie closing it
-    os._exit(0) #note the underscore
+    os._exit(0)  # note the underscore
 
 
 def write_shell(data, bytes=False):
