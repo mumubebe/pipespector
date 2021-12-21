@@ -22,6 +22,7 @@ setuptools.setup(
     ],
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
+    setup_requires=['wheel']
     entry_points={
         "console_scripts": [
             "pipespector=pipespector.shell:main",

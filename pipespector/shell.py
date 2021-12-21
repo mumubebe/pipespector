@@ -2,7 +2,6 @@ import cmd
 import argparse
 import os
 import sys
-import signal
 from .inspector import Inspector
 
 
@@ -39,18 +38,23 @@ class PipeShell(cmd.Cmd):
         return True
 
     def do_pattern(self, arg):
-        """Break at any glob pattern"""
+        """
+        Pauses the program if any globe pattern matches incoming values ​​to pipespector.
+        Note that this is only done at stdin.
+
+        Example 1: pattern *400* # match any string with '400'
+        """
         if arg == "clear":
             self.inspector.break_patterns = []
         else:
             self.inspector.break_patterns.append(arg)
 
     def do_seq(self, arg):
-        """Print sequence number"""
-        write_shell(str(self.inspector.seq))
+        """Display sequence number"""
+        write_shell(str(self.inspector.seq) + "\n")
 
     def do_curr(self, arg):
-        """Print the current value to shell"""
+        """Display the current value to shell"""
         if self.inspector.curr is None:
             write_shell("No current value in available\n")
         else:
@@ -66,7 +70,7 @@ class PipeShell(cmd.Cmd):
     def do_open(self, arg):
         """Open up pipe and let it flow freely"""
         if self.inspector.is_closed():
-            self.inspector.open(silence=True)
+            self.inspector.open()
         else:
             write_shell("Pipe is already open\n")
 
@@ -89,26 +93,34 @@ class PipeShell(cmd.Cmd):
         write_shell(self.inspector.prev, bytes=self.bytes)
 
     def do_step(self, arg):
-        """Step one value"""
+        """
+        Step by step operation
+        A step represent a stdin or a stdout operation. If there is already a value in
+        pipespector (use the 'curr' command to display the current value), then the next
+        step pipes that value to stdout. If there is no value in pipespector, the next step is stdin to pipespector.
+        """
         if self.inspector.is_closed():
-            curr = self.inspector.curr
-            if curr:
-                write_shell("stdout: \n")
-                write_shell(curr, bytes=self.bytes)
-                write_stdout(curr)
-                self.inspector.flush()
+            if self.inspector.curr is None:
+                self.inspector.curr = self.inspector.step()
+                write_shell("stdin: \n")
+                write_shell(self.inspector.curr, bytes=self.bytes)
             else:
-                write_shell("No current value in pipe\n")
+                write_shell("stdout: \n")
+                write_shell(self.inspector.curr, bytes=self.bytes)
+                write_stdout(self.inspector.curr)
+                self.inspector.flush()
         else:
             write_shell("Cannot step, pipe is open\n")
 
     def do_exec(self, arg):
         """
         Execute python script. This function works mainly to modify any future output.
-        it's possible to modify both curr and prev. Note that all variables in pipe are byte objects.
+        it's possible to modify both curr and prev.
 
-        Example 1: curr = b'{"json": "object"}' # Set a string to curr value
-        Example 2: curr = prev + b"\n" # Set curr value as previous value with a line break
+        Note that all values ​​are byte-like object if the --byte flag is used
+
+        Example 1: curr = '{"json": "object"}' # Set a string to curr value
+        Example 2: curr = prev + "\n" # Set curr value as previous value with a line break
         """
         if self.inspector.is_closed():
             try:
@@ -132,6 +144,9 @@ def stdin_exhausted():
 
 def write_shell(data, bytes=False):
     """Print value to current shell"""
+    if data is None:
+        data = b"None\n" if bytes else "None\n"
+
     if bytes:
         outshell.buffer.write(data)
     else:

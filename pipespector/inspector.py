@@ -28,34 +28,38 @@ class Inspector:
 
         return value
 
-    def _threaded_open(self, silence=True):
+    def _threaded_open(self):
         """Consume stdin threaded"""
         from .shell import write_stdout, write_shell
 
         if self.curr is None:
             self.curr = self.step()
+        else:
+            # Pass any values to stdout thats already in pipe.
+            # This is because pattern matching etc should not be triggered by values already
+            # inside the pipe - only values passing from stdin -> pipespector
+            write_stdout(self.curr, bytes=self.bytes)
+            self.prev = self._state["curr"]
+            self.curr = self.step()
 
         while True:
             if self.pattern_match(self.curr, self.break_patterns):
                 self.close()
-                write_shell(f"\nBreak at ({self.seq})\n")
+                write_shell(f"\nPattern found - pipe closed at ({self.seq})\n")
                 break
 
             if self.pipe_closed:
                 break
-
-            if not silence:
-                write_shell(self.curr, bytes=self.bytes)
 
             write_stdout(self.curr, bytes=self.bytes)
 
             self.prev = self._state["curr"]
             self.curr = self.step()
 
-    def open(self, silence=True):
+    def open(self):
         """Open pipe"""
         self.pipe_closed = False
-        self._thread = threading.Thread(target=self._threaded_open, args=(silence,))
+        self._thread = threading.Thread(target=self._threaded_open)
         self._thread.start()
 
     def pattern_match(self, value, patterns):
@@ -84,10 +88,6 @@ class Inspector:
 
     @property
     def curr(self):
-        if self._state["curr"] is not None:
-            return self._state["curr"]
-
-        self._state["curr"] = self.step()
         return self._state["curr"]
 
     @curr.setter
@@ -96,8 +96,6 @@ class Inspector:
 
     @property
     def prev(self):
-        if self._state["prev"] is None:
-            return b"" if self.bytes else ""
         return self._state["prev"]
 
     @prev.setter
