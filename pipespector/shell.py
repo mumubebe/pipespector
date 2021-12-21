@@ -8,10 +8,11 @@ from .inspector import Inspector
 outshell = open("/dev/tty", "w")
 inshell = open("/dev/tty")
 
-if os.isatty(0) or os.isatty(1):
-    raise Exception(
-        "Pipespector cannot be connected to file descriptors that are tty-like devices"
-    )
+def fd_connect_test():
+    if os.isatty(0) or os.isatty(1):
+        raise Exception(
+            "Pipespector cannot be connected to file descriptors that are tty-like devices"
+        )
 
 
 class PipeShell(cmd.Cmd):
@@ -171,5 +172,7 @@ def main():
         "-o", "--open", dest="open", action="store_true", help="Start with open pipe"
     )
     args = parser.parse_args()
+
+    fd_connect_test()
 
     PipeShell(bytes=args.bytes, name=args.name, open=args.open).cmdloop()
