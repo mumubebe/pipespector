@@ -65,7 +65,7 @@ class Inspector:
     def pattern_match(self, value, patterns):
         """Return true if any match"""
         for p in patterns:
-            if fnmatch.fnmatch(value, p):
+            if fnmatch.fnmatch(value.strip(), p):
                 return True
         return False
 

@@ -5,8 +5,18 @@ import sys
 from .inspector import Inspector
 
 
+class colors:
+    RED = "\033[1;31m"
+    BLUE = "\033[1;34m"
+    CYAN = "\033[1;36m"
+    GREEN = "\033[0;32m"
+    RESET = "\033[0;0m"
+    BOLD = "\033[;1m"
+
+
 outshell = open("/dev/tty", "w")
 inshell = open("/dev/tty")
+
 
 def fd_connect_test():
     if os.isatty(0) or os.isatty(1):
@@ -29,7 +39,7 @@ class PipeShell(cmd.Cmd):
         if name:
             self.name = name
 
-        self.prompt = f"({self.name})> "
+        self.prompt = f"{colors.RESET}({self.name})> "
 
         if open:
             self.inspector.open()
@@ -57,7 +67,7 @@ class PipeShell(cmd.Cmd):
     def do_curr(self, arg):
         """Display the current value to shell"""
         if self.inspector.curr is None:
-            write_shell("No current value in available\n")
+            write_shell("No current value in available\n", color=colors.GREEN)
         else:
             write_shell(self.inspector.curr, bytes=self.bytes)
 
@@ -73,12 +83,12 @@ class PipeShell(cmd.Cmd):
         if self.inspector.is_closed():
             self.inspector.open()
         else:
-            write_shell("Pipe is already open\n")
+            write_shell("Pipe is already open\n", color=colors.GREEN)
 
     def do_prev(self, arg):
         """Print the previous value to shell"""
         if self.inspector.prev is None:
-            write_shell("No previous value in available\n")
+            write_shell("No previous value in available\n", color=colors.GREEN)
         else:
             write_shell(self.inspector.prev, bytes=True)
 
@@ -87,10 +97,13 @@ class PipeShell(cmd.Cmd):
         write_shell(
             f"{os.readlink('/proc/%d/fd/0' % os.getpid())} -> {self.name} -> {os.readlink('/proc/%d/fd/1' % os.getpid())}\n"
         )
-        write_shell(f"({self.inspector.seq}) values has been passed in pipe \n")
-        write_shell("Current value in pipe: ")
+        write_shell(
+            f"({self.inspector.seq}) values has been passed in pipe \n",
+            color=colors.GREEN,
+        )
+        write_shell("Current value in pipe: ", color=colors.GREEN)
         write_shell(self.inspector.curr, bytes=self.bytes)
-        write_shell("Previous value in pipe: ")
+        write_shell("Previous value in pipe: ", color=colors.GREEN)
         write_shell(self.inspector.prev, bytes=self.bytes)
 
     def do_step(self, arg):
@@ -103,15 +116,15 @@ class PipeShell(cmd.Cmd):
         if self.inspector.is_closed():
             if self.inspector.curr is None:
                 self.inspector.curr = self.inspector.step()
-                write_shell("stdin: \n")
+                write_shell("stdin: \n", color=colors.GREEN)
                 write_shell(self.inspector.curr, bytes=self.bytes)
             else:
-                write_shell("stdout: \n")
+                write_shell("stdout: \n", color=colors.CYAN)
                 write_shell(self.inspector.curr, bytes=self.bytes)
                 write_stdout(self.inspector.curr)
                 self.inspector.flush()
         else:
-            write_shell("Cannot step, pipe is open\n")
+            write_shell("Cannot step, pipe is open\n", color=colors.GREEN)
 
     def do_exec(self, arg):
         """
@@ -133,7 +146,7 @@ class PipeShell(cmd.Cmd):
 
 
 def stdin_exhausted():
-    write_shell("No more items left -- exiting program...\n")
+    write_shell("EOF -- exiting program...\n", color=colors.GREEN)
 
     outshell.flush()
     sys.stdout.flush()
@@ -143,7 +156,7 @@ def stdin_exhausted():
     os._exit(0)  # note the underscore
 
 
-def write_shell(data, bytes=False):
+def write_shell(data, bytes=False, color="\033[0;0m"):
     """Print value to current shell"""
     if data is None:
         data = b"None\n" if bytes else "None\n"
@@ -151,7 +164,7 @@ def write_shell(data, bytes=False):
     if bytes:
         outshell.buffer.write(data)
     else:
-        outshell.write(data)
+        outshell.write(color + data)
     outshell.flush()
 
 
@@ -166,7 +179,7 @@ def write_stdout(data, bytes=False):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-n", "--name")
+    parser.add_argument("-n", "--name", help="Set input terminal name")
     parser.add_argument("-b", "--bytes", dest="bytes", action="store_true", help="")
     parser.add_argument(
         "-o", "--open", dest="open", action="store_true", help="Start with open pipe"
