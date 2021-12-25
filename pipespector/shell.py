@@ -31,7 +31,7 @@ class PipeShell(cmd.Cmd):
     name = "pipespector"
 
     def __init__(self, bytes=False, name=None, open=False, *args, **kwargs):
-        super().__init__(stdout=outshell, stdin=inshell, *args, **kwargs)
+        super().__init__(stdin=inshell, stdout=outshell, *args, **kwargs)
 
         self.inspector = Inspector(bytes=bytes)
         self.bytes = bytes
@@ -96,11 +96,11 @@ class PipeShell(cmd.Cmd):
         """Print current pipe information"""
         write_shell(
             f"""{os.readlink('/proc/%d/fd/0' % os.getpid())} -> {self.name} -> {os.readlink('/proc/%d/fd/1' % os.getpid())}
------------------------------------------------------
-+ {self.inspector.seq} values has been passed in pipe
-+ Current value in pipe: {self.inspector.curr}
-+ Previous value in pipe: {self.inspector.prev}
-"""
+            -----------------------------------------------------
+            + {self.inspector.seq} values has been passed in pipe
+            + Current value in pipe: {self.inspector.curr}
+            + Previous value in pipe: {self.inspector.prev}
+            """
         )
 
     def do_step(self, arg):
@@ -116,7 +116,6 @@ class PipeShell(cmd.Cmd):
                 write_shell(self.inspector.curr, bytes=self.bytes, type="STDIN")
             else:
                 write_shell(self.inspector.curr, bytes=self.bytes, type="STDOUT")
-                write_stdout(self.inspector.curr)
                 self.inspector.flush()
         else:
             write_shell("Cannot step, pipe is open\n", color="WARNING")
@@ -177,10 +176,10 @@ def write_shell(
 def write_stdout(data, bytes=False):
     """Pass data to stdout. This will not be printed in shell"""
     if bytes:
-        sys.stdout.buffer.write(data)
+        outshell.buffer.write(data)
     else:
-        sys.stdout.write(data)
-    sys.stdout.flush()
+        outshell.write(data)
+    outshell.flush()
 
 
 def main():
