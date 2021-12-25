@@ -2,17 +2,17 @@ import cmd
 import argparse
 import os
 import sys
+from datetime import datetime
 from .inspector import Inspector
 
 
-class colors:
-    RED = "\033[1;31m"
-    BLUE = "\033[1;34m"
-    CYAN = "\033[1;36m"
-    GREEN = "\033[0;32m"
-    RESET = "\033[0;0m"
-    BOLD = "\033[;1m"
-
+colors = {
+    "WARNING": "\033[1;33m",
+    "INFO": "\033[0;32m",
+    "STDIN": "\033[1;34m",
+    "STDOUT": "\033[1;36m",
+    "RESET": "\033[0;0m",
+}
 
 outshell = open("/dev/tty", "w")
 inshell = open("/dev/tty")
@@ -39,7 +39,7 @@ class PipeShell(cmd.Cmd):
         if name:
             self.name = name
 
-        self.prompt = f"{colors.RESET}({self.name})> "
+        self.prompt = f"{colors['RESET']}({self.name})> "
 
         if open:
             self.inspector.open()
@@ -67,44 +67,41 @@ class PipeShell(cmd.Cmd):
     def do_curr(self, arg):
         """Display the current value to shell"""
         if self.inspector.curr is None:
-            write_shell("No current value in available\n", color=colors.GREEN)
+            write_shell("No current value in available\n", type="INFO")
         else:
-            write_shell(self.inspector.curr, bytes=self.bytes)
+            write_shell(self.inspector.curr, bytes=self.bytes, type="INFO")
 
     def do_close(self, arg):
         """Close pipe. This will pause the flow"""
         if self.inspector.is_open():
             self.inspector.close()
         else:
-            write_shell("Pipe is not open\n")
+            write_shell("Pipe is not open\n", type="WARNING")
 
     def do_open(self, arg):
         """Open up pipe and let it flow freely"""
         if self.inspector.is_closed():
             self.inspector.open()
         else:
-            write_shell("Pipe is already open\n", color=colors.GREEN)
+            write_shell("Pipe is already open\n", type="WARNING")
 
     def do_prev(self, arg):
         """Print the previous value to shell"""
         if self.inspector.prev is None:
-            write_shell("No previous value in available\n", color=colors.GREEN)
+            write_shell("No previous value in available\n", type="WARNING")
         else:
-            write_shell(self.inspector.prev, bytes=True)
+            write_shell(self.inspector.prev, bytes=self.bytes)
 
     def do_info(self, arg):
         """Print current pipe information"""
         write_shell(
-            f"{os.readlink('/proc/%d/fd/0' % os.getpid())} -> {self.name} -> {os.readlink('/proc/%d/fd/1' % os.getpid())}\n"
+            f"""{os.readlink('/proc/%d/fd/0' % os.getpid())} -> {self.name} -> {os.readlink('/proc/%d/fd/1' % os.getpid())}
+-----------------------------------------------------
++ {self.inspector.seq} values has been passed in pipe
++ Current value in pipe: {self.inspector.curr}
++ Previous value in pipe: {self.inspector.prev}
+"""
         )
-        write_shell(
-            f"({self.inspector.seq}) values has been passed in pipe \n",
-            color=colors.GREEN,
-        )
-        write_shell("Current value in pipe: ", color=colors.GREEN)
-        write_shell(self.inspector.curr, bytes=self.bytes)
-        write_shell("Previous value in pipe: ", color=colors.GREEN)
-        write_shell(self.inspector.prev, bytes=self.bytes)
 
     def do_step(self, arg):
         """
@@ -116,15 +113,13 @@ class PipeShell(cmd.Cmd):
         if self.inspector.is_closed():
             if self.inspector.curr is None:
                 self.inspector.curr = self.inspector.step()
-                write_shell("stdin: \n", color=colors.GREEN)
-                write_shell(self.inspector.curr, bytes=self.bytes)
+                write_shell(self.inspector.curr, bytes=self.bytes, type="STDIN")
             else:
-                write_shell("stdout: \n", color=colors.CYAN)
-                write_shell(self.inspector.curr, bytes=self.bytes)
+                write_shell(self.inspector.curr, bytes=self.bytes, type="STDOUT")
                 write_stdout(self.inspector.curr)
                 self.inspector.flush()
         else:
-            write_shell("Cannot step, pipe is open\n", color=colors.GREEN)
+            write_shell("Cannot step, pipe is open\n", color="WARNING")
 
     def do_exec(self, arg):
         """
@@ -142,11 +137,11 @@ class PipeShell(cmd.Cmd):
             except Exception as e:
                 write_shell(str(e))
         else:
-            write_shell("Cannot execute script while pipe is open\n")
+            write_shell("Cannot execute script while pipe is open\n", type="WARNING")
 
 
 def stdin_exhausted():
-    write_shell("EOF -- exiting program...\n", color=colors.GREEN)
+    write_shell("EOF -- exiting program...\n", type="INFO")
 
     outshell.flush()
     sys.stdout.flush()
@@ -156,15 +151,26 @@ def stdin_exhausted():
     os._exit(0)  # note the underscore
 
 
-def write_shell(data, bytes=False, color="\033[0;0m"):
+def write_shell(
+    data,
+    bytes=False,
+    type="INFO",
+    color="\033[0;0m",
+    type_color=None,
+    time_color="\033[0;33m",
+):
     """Print value to current shell"""
     if data is None:
         data = b"None\n" if bytes else "None\n"
 
+    type_color = colors.get(type, colors["INFO"])
+
     if bytes:
         outshell.buffer.write(data)
     else:
-        outshell.write(color + data)
+        outshell.write(
+            f"{time_color}[{datetime.now().strftime('%H:%M:%S')}] {type_color}[{type}] {color}{data}"
+        )
     outshell.flush()
 
 
@@ -180,7 +186,13 @@ def write_stdout(data, bytes=False):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--name", help="Set input terminal name")
-    parser.add_argument("-b", "--bytes", dest="bytes", action="store_true", help="")
+    parser.add_argument(
+        "-b",
+        "--bytes",
+        dest="bytes",
+        action="store_true",
+        help="Pass in byte-like data in pipe. Some visual functions - like colors - are disabled while using this",
+    )
     parser.add_argument(
         "-o", "--open", dest="open", action="store_true", help="Start with open pipe"
     )
