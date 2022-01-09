@@ -8,6 +8,7 @@ from .inspector import Inspector
 
 colors = {
     "WARNING": "\033[1;33m",
+    "COMMENT": "\033[1;32m",
     "INFO": "\033[0;32m",
     "STDIN": "\033[1;34m",
     "STDOUT": "\033[1;36m",
@@ -43,6 +44,18 @@ class PipeShell(cmd.Cmd):
 
         if open:
             self.inspector.open()
+
+    def default(self, line):
+        """Called on an input line when the command prefix is not recognized.
+
+        If this method is not overridden, it prints an error message and
+        returns.
+
+        """
+        if line[0] == '#':
+            outshell.write(colors['COMMENT']+line + "\n")
+        else:
+            outshell.write('*** Unknown syntax: %s\n'%line)
 
     def do_exit(self, arg):
         """Exit program"""
