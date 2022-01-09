@@ -116,6 +116,7 @@ class PipeShell(cmd.Cmd):
                 write_shell(self.inspector.curr, bytes=self.bytes, type="STDIN")
             else:
                 write_shell(self.inspector.curr, bytes=self.bytes, type="STDOUT")
+                write_stdout(self.inspector.curr, bytes=self.bytes)
                 self.inspector.flush()
         else:
             write_shell("Cannot step, pipe is open\n", color="WARNING")
@@ -179,7 +180,7 @@ def write_stdout(data, bytes=False):
         sys.stdout.buffer.write(data)
     else:
         sys.stdout.write(data)
-    outshell.flush()
+    sys.stdout.flush()
 
 
 def main():
