@@ -176,9 +176,9 @@ def write_shell(
 def write_stdout(data, bytes=False):
     """Pass data to stdout. This will not be printed in shell"""
     if bytes:
-        outshell.buffer.write(data)
+        sys.stdout.buffer.write(data)
     else:
-        outshell.write(data)
+        sys.stdout.write(data)
     outshell.flush()
 
 
