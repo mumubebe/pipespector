@@ -14,5 +14,24 @@ break  close  curr  exec  exit  help  info  open  prev  seq  step
 
 ```
 
+## Install
+Via pip
+```console
+python3 -m venv venv
+source venv/bin/activate
+python -m pip install git+https://github.com/mumubebe/pipespector.git
 
-[![asciicast](https://asciinema.org/a/C7qhJHK2kLKir8fB8wDm7TAgO.svg)](https://asciinema.org/a/C7qhJHK2kLKir8fB8wDm7TAgO)
+# Test
+seq 5 | pipespector > res.txt
+
+```
+Clone:
+```console
+git clone https://github.com/mumubebe/pipespector.git
+cd pipespector
+
+# Test
+seq 5 | python -m pipespector > res.txt
+```
+
+[![asciicast](https://asciinema.org/a/S0Kqov6Cqt5sMzm75WB4qmCEX.svg)](https://asciinema.org/a/S0Kqov6Cqt5sMzm75WB4qmCEX)
