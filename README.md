@@ -1,4 +1,4 @@
-# Pipespector
+# 🔍️ Pipespector
 
 Pipespector is a pretty shitty tool for debugging and tracing pipes. 
 
